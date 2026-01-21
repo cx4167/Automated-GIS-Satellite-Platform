@@ -1,0 +1,47 @@
+# === GIS Data ===
+# Never upload raw satellite imagery to GitHub
+*.tif
+*.tiff
+*.nc
+*.zip
+*.tar.gz
+*.geojson
+*.shp
+*.dbf
+*.shx
+
+# === Environment & Secrets ===
+# Protect your database passwords and API keys
+.env
+auth.json
+secrets.yaml
+
+# === Airflow ===
+# We want the folder structure, but not the actual log files
+logs/*
+!logs/.gitkeep
+plugins/*
+!plugins/.gitkeep
+airflow.db
+airflow-webserver.pid
+
+# === Python & OS ===
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.DS_Store
+.idea/
+.vscode/
+
+# === Docker ===
+.docker/
+# === Docker runtime volumes ===
+postgres_data/
+minio_data/
+redis_data/
+
+# === Docker artifacts ===
+docker-compose.override.yml
+*.log
