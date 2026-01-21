@@ -45,3 +45,5 @@ redis_data/
 # === Docker artifacts ===
 docker-compose.override.yml
 *.log
+minio_data/
+postgres_data/
