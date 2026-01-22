@@ -2,7 +2,7 @@
 
 # 🛰️ Automated Satellite GIS Platform
 
-**Carbo-X** is an end-to-end, containerized geospatial data pipeline. It automates the ingestion of satellite imagery (Raster data), stores it in a spatially-aware database, and prepares it for web-based visualization and environmental analysis.
+It is an end-to-end, containerized geospatial data pipeline. It automates the ingestion of satellite imagery (Raster data), stores it in a spatially-aware database, and prepares it for web-based visualization and environmental analysis.
 
 ## 🏗️ System Architecture
 
