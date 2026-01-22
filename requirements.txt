@@ -11,3 +11,6 @@ geoalchemy2==0.14.3
 boto3==1.34.14
 requests==2.31.0
 python-dotenv==1.0.0
+psycopg2-binary
+rasterio
+requests

@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # 1. Database
+  # 1. Database (PostGIS)
   postgis:
     image: postgis/postgis:16-3.4
     env_file: .env
@@ -31,7 +31,7 @@ services:
       timeout: 20s
       retries: 3
 
-  # 3. Processing Container (Your Code)
+  # 3. Processing Container (Custom GIS Tools)
   processor:
     build: .
     volumes:
@@ -43,7 +43,7 @@ services:
       minio:
         condition: service_healthy
 
-  # 4. Workflow Engine
+  # 4. Workflow Engine (Airflow)
   airflow:
     build:
       context: .
@@ -51,26 +51,33 @@ services:
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://gis_user:dev_password@postgis:5432/gis_db
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://gis_user:dev_password@postgis:5432/gis_db
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - PYTHONPATH=/opt/airflow
+      - OPENTOPOGRAPHY_API_KEY=${OPENTOPOGRAPHY_API_KEY}
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
       - ./.env:/opt/airflow/.env
     ports:
       - "8082:8080"
-    user: "50000:0" # Standard Airflow user ID
-    command: bash -c "airflow db migrate && airflow scheduler & airflow webserver"
+    user: "50000:0"
+    command: bash -c "airflow db migrate && (airflow scheduler & airflow webserver)"
     depends_on:
       postgis:
         condition: service_healthy
 
-  # 5. Map Server
+  # 5. Map Server (GeoServer)
   geoserver:
     image: docker.osgeo.org/geoserver:2.24.0
     environment:
       - SKIP_DEMO_DATA=true
+      - INSTALL_EXTENSIONS=true 
+      - COMMUNITY_EXTENSIONS=pgraster-plugin # Important for viewing your PostGIS rasters
     ports:
-      - "8081:8080"
+      - "8085:8080" # Changed from 8081 to 8085 as requested
     volumes:
       - ./geoserver_data:/opt/geoserver/data_dir
+    depends_on:
+      postgis:
+        condition: service_healthy
