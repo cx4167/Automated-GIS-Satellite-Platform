@@ -42,8 +42,8 @@ chmod -R 777 logs plugins
 ### 3. Build and Launch
 
 ```bash
-docker-compose build --no-cache
-docker-compose up -d
+docker compose build --no-cache
+docker compose up -d
 
 ```
 
