@@ -24,7 +24,7 @@ To deploy a fresh instance of the platform:
 
 ```bash
 git clone https://github.com/cx4167/Automated-GIS-Satellite-Platform.git
-cd gis-platform
+cd Automated-GIS-Satellite-Platform/
 mkdir -p dags src logs plugins
 
 ```
