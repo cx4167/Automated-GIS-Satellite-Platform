@@ -1,0 +1,32 @@
+{
+  "cities": [
+    {
+      "name": "Bangalore",
+      "bbox": {
+        "min_lon": 77.4,
+        "min_lat": 12.8,
+        "max_lon": 77.8,
+        "max_lat": 13.2
+      },
+      "time_periods": [
+        {"year": 2015, "month": 1},
+        {"year": 2020, "month": 1},
+        {"year": 2024, "month": 1}
+      ]
+    },
+    {
+      "name": "Delhi",
+      "bbox": {
+        "min_lon": 77.0,
+        "min_lat": 28.4,
+        "max_lon": 77.4,
+        "max_lat": 28.9
+      },
+      "time_periods": [
+        {"year": 2015, "month": 1},
+        {"year": 2020, "month": 1},
+        {"year": 2024, "month": 1}
+      ]
+    }
+  ]
+}
