@@ -2,7 +2,6 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/docker-compose-blue.svg)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active-success.svg)](#status)
 
 A comprehensive, containerized geospatial platform for automated satellite imagery analysis, urban growth monitoring, and geospatial data management. Combines Apache Airflow for orchestration, PostGIS for spatial data storage, GeoServer for map services, and Flask for interactive visualizations.
