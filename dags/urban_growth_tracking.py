@@ -1,6 +1,7 @@
 """
 Urban Growth Tracking Pipeline
 Automated workflow for monitoring city expansion
+Updated for local filesystem storage
 """
 
 from airflow import DAG
@@ -10,32 +11,20 @@ import sys
 
 sys.path.append('/opt/airflow')
 
+# Import the updated functions
 from src.urban_growth.download_landsat import batch_download_for_city
-from src.urban_growth.calculate_ndvi import calculate_ndvi_from_s3, store_ndvi_stats_in_db
+from src.urban_growth.calculate_ndvi import process_city_data
 from src.urban_growth.detect_changes import analyze_urban_growth
 
 def download_bangalore_imagery():
     """Download all time periods for Bangalore"""
     return batch_download_for_city("Bangalore")
 
-def process_ndvi_for_bangalore(**context):
+def process_bangalore_ndvi(**context):
     """Calculate NDVI for all downloaded imagery"""
-    # Get downloaded scenes from previous task
-    ti = context['ti']
-    scenes = ti.xcom_pull(task_ids='download_imagery')
-    
-    results = []
-    for scene in scenes:
-        stats = calculate_ndvi_from_s3(scene['s3_key'])
-        store_ndvi_stats_in_db(
-            scene['city'],
-            scene['year'],
-            scene['month'],
-            stats
-        )
-        results.append(stats)
-    
-    return results
+    # Process all imagery for Bangalore
+    result = process_city_data("Bangalore")
+    return result
 
 def analyze_bangalore_growth():
     """Run change detection analysis"""
@@ -70,7 +59,7 @@ with DAG(
     # Task 2: Calculate NDVI
     ndvi_task = PythonOperator(
         task_id='calculate_ndvi',
-        python_callable=process_ndvi_for_bangalore,
+        python_callable=process_bangalore_ndvi,
         provide_context=True,
     )
 
