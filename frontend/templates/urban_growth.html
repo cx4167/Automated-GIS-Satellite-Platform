@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urban Growth Analysis - GIS Platform</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-satellite"></i>
+                <span>GIS Platform</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/urban-growth" class="active">Urban Growth</a></li>
+                <li><a href="/maps">Maps</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        
+        <h1><i class="fas fa-city"></i> Urban Growth Analysis</h1>
+
+        <!-- Summary Cards -->
+        <div class="metrics-grid" id="metrics-summary">
+            <div class="metric-card loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading metrics...</p>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <section class="section">
+            <h2><i class="fas fa-chart-area"></i> Growth Trends</h2>
+            <div class="chart-container">
+                <canvas id="urbanGrowthChart"></canvas>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2><i class="fas fa-leaf"></i> Vegetation Index (NDVI)</h2>
+            <div class="chart-container">
+                <canvas id="ndviChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Analysis Results Table -->
+        <section class="section">
+            <h2><i class="fas fa-table"></i> Detailed Analysis</h2>
+            <div id="analysis-table" class="table-container">
+                <p class="loading">Loading analysis results...</p>
+            </div>
+        </section>
+
+    </div>
+
+    <footer>
+        <p>Urban Growth Analysis | Updated: <span id="last-update"></span></p>
+    </footer>
+
+    <script>
+        // Load urban growth data and render charts
+        async function loadUrbanGrowthData() {
+            try {
+                const response = await fetch('/api/urban-growth-metrics');
+                const data = await response.json();
+                
+                // Update summary cards
+                displayMetricsSummary(data.analyses);
+                
+                // Render charts
+                renderUrbanGrowthChart(data.metrics);
+                renderNDVIChart(data.metrics);
+                
+                // Show analysis table
+                displayAnalysisTable(data.analyses);
+                
+                document.getElementById('last-update').textContent = new Date().toLocaleString();
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        function displayMetricsSummary(analyses) {
+            if (!analyses || analyses.length === 0) {
+                document.getElementById('metrics-summary').innerHTML = 
+                    '<div class="metric-card"><p>No analysis data available</p></div>';
+                return;
+            }
+
+            const latest = analyses[0];
+            const html = `
+                <div class="metric-card ${latest.annual_growth_rate > 2 ? 'alert' : ''}">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>${latest.growth_rate.toFixed(2)}%</h3>
+                    <p>Total Urban Growth</p>
+                    <small>${latest.start_year} - ${latest.end_year}</small>
+                </div>
+                <div class="metric-card">
+                    <i class="fas fa-percent"></i>
+                    <h3>${latest.annual_growth_rate.toFixed(2)}%</h3>
+                    <p>Annual Growth Rate</p>
+                    <small>Per year average</small>
+                </div>
+                <div class="metric-card ${latest.ndvi_change < -0.1 ? 'alert' : ''}">
+                    <i class="fas fa-leaf"></i>
+                    <h3>${latest.ndvi_change.toFixed(3)}</h3>
+                    <p>NDVI Change</p>
+                    <small>Vegetation loss indicator</small>
+                </div>
+                <div class="metric-card">
+                    <i class="fas fa-city"></i>
+                    <h3>${latest.city}</h3>
+                    <p>City Analyzed</p>
+                    <small>Last analysis: ${new Date(latest.analysis_date).toLocaleDateString()}</small>
+                </div>
+            `;
+            document.getElementById('metrics-summary').innerHTML = html;
+        }
+
+        function renderUrbanGrowthChart(metrics) {
+            const ctx = document.getElementById('urbanGrowthChart').getContext('2d');
+            
+            // Group by city
+            const cities = {};
+            metrics.forEach(m => {
+                if (!cities[m.city]) cities[m.city] = [];
+                cities[m.city].push(m);
+            });
+            
+            const datasets = Object.keys(cities).map((city, index) => {
+                const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
+                return {
+                    label: city,
+                    data: cities[city].map(m => ({
+                        x: `${m.year}-${m.month.toString().padStart(2, '0')}`,
+                        y: m.urban_percentage
+                    })),
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: colors[index % colors.length] + '20',
+                    tension: 0.4
+                };
+            });
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Urban Area Percentage Over Time'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Urban Area (%)' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Time Period' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderNDVIChart(metrics) {
+            const ctx = document.getElementById('ndviChart').getContext('2d');
+            
+            const cities = {};
+            metrics.forEach(m => {
+                if (!cities[m.city]) cities[m.city] = [];
+                cities[m.city].push(m);
+            });
+            
+            const datasets = Object.keys(cities).map((city, index) => {
+                const colors = ['#27ae60', '#e67e22', '#9b59b6', '#1abc9c'];
+                return {
+                    label: city,
+                    data: cities[city].map(m => ({
+                        x: `${m.year}-${m.month.toString().padStart(2, '0')}`,
+                        y: m.mean_ndvi
+                    })),
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: colors[index % colors.length] + '20',
+                    tension: 0.4
+                };
+            });
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Vegetation Index (NDVI) Trends'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: { display: true, text: 'Mean NDVI' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Time Period' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayAnalysisTable(analyses) {
+            if (!analyses || analyses.length === 0) {
+                document.getElementById('analysis-table').innerHTML = '<p>No analysis data available</p>';
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>City</th>
+                            <th>Period</th>
+                            <th>Growth Rate</th>
+                            <th>Annual Rate</th>
+                            <th>NDVI Change</th>
+                            <th>Analysis Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            analyses.forEach(a => {
+                const alertClass = a.annual_growth_rate > 2 ? 'class="alert-row"' : '';
+                html += `
+                    <tr ${alertClass}>
+                        <td>${a.city}</td>
+                        <td>${a.start_year} - ${a.end_year}</td>
+                        <td>${a.growth_rate.toFixed(2)}%</td>
+                        <td>${a.annual_growth_rate.toFixed(2)}%/yr</td>
+                        <td>${a.ndvi_change.toFixed(3)}</td>
+                        <td>${new Date(a.analysis_date).toLocaleDateString()}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('analysis-table').innerHTML = html;
+        }
+
+        // Load data on page load
+        loadUrbanGrowthData();
+        
+        // Refresh every 30 seconds
+        setInterval(loadUrbanGrowthData, 30000);
+    </script>
+</body>
+</html>

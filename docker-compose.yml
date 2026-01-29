@@ -1,10 +1,11 @@
-version: '3.8'
-
 services:
   # 1. Database (PostGIS)
   postgis:
     image: postgis/postgis:16-3.4
-    env_file: .env
+    environment:
+      - POSTGRES_DB=gis_db
+      - POSTGRES_USER=gis_user
+      - POSTGRES_PASSWORD=dev_password
     ports:
       - "5433:5432"
     volumes:
@@ -15,35 +16,23 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2. Object Storage (S3)
-  minio:
-    image: minio/minio
-    command: server /data --console-address ":9001"
-    env_file: .env
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - ./minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-
-  # 3. Processing Container (Custom GIS Tools)
+  # 2. Processing Container (Custom GIS Tools)
   processor:
     build: .
     volumes:
       - ./src:/app/src
-    env_file: .env
+      - ./data:/app/data  # Local data storage
+    environment:
+      - POSTGRES_DB=gis_db
+      - POSTGRES_USER=gis_user
+      - POSTGRES_PASSWORD=dev_password
+      - POSTGRES_HOST=postgis
+      - POSTGRES_PORT=5432
     depends_on:
       postgis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
 
-  # 4. Workflow Engine (Airflow)
+  # 3. Workflow Engine (Airflow)
   airflow:
     build:
       context: .
@@ -54,10 +43,17 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://gis_user:dev_password@postgis:5432/gis_db
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - PYTHONPATH=/opt/airflow
-      - OPENTOPOGRAPHY_API_KEY=${OPENTOPOGRAPHY_API_KEY}
+      - POSTGRES_DB=gis_db
+      - POSTGRES_USER=gis_user
+      - POSTGRES_PASSWORD=dev_password
+      - POSTGRES_HOST=postgis
+      - POSTGRES_PORT=5432
+      - OPENTOPOGRAPHY_API_KEY=${OPENTOPOGRAPHY_API_KEY:-}
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
+      - ./config:/opt/airflow/config
+      - ./data:/opt/airflow/data  # Local data storage
       - ./.env:/opt/airflow/.env
     ports:
       - "8082:8080"
@@ -67,17 +63,38 @@ services:
       postgis:
         condition: service_healthy
 
-  # 5. Map Server (GeoServer)
+  # 4. Map Server (GeoServer)
   geoserver:
     image: docker.osgeo.org/geoserver:2.24.0
     environment:
       - SKIP_DEMO_DATA=true
       - INSTALL_EXTENSIONS=true 
-      - COMMUNITY_EXTENSIONS=pgraster-plugin # Important for viewing your PostGIS rasters
+      - COMMUNITY_EXTENSIONS=pgraster-plugin
     ports:
-      - "8085:8080" # Changed from 8081 to 8085 as requested
+      - "8085:8080"
     volumes:
       - ./geoserver_data:/opt/geoserver/data_dir
+    depends_on:
+      postgis:
+        condition: service_healthy
+
+  # 5. Web Dashboard (Frontend)
+  dashboard:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5005:5000"
+    environment:
+      - POSTGRES_DB=gis_db
+      - POSTGRES_USER=gis_user
+      - POSTGRES_PASSWORD=dev_password
+      - POSTGRES_HOST=postgis
+      - POSTGRES_PORT=5432
+      - DATA_DIR=/app/data
+    volumes:
+      - ./frontend:/app
+      - ./data:/app/data  # Local data storage
     depends_on:
       postgis:
         condition: service_healthy

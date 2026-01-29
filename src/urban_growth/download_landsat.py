@@ -1,15 +1,15 @@
 """
 Download Landsat imagery for urban growth analysis
-Uses NASA's Landsat API or alternative public sources
+Stores data locally in filesystem instead of S3
 """
 
 import os
 import requests
-import rasterio
 from datetime import datetime
-import boto3
-from io import BytesIO
 import json
+import shutil
+
+DATA_DIR = os.getenv('DATA_DIR', '/opt/airflow/data')
 
 def load_city_config(city_name):
     """Load configuration for a specific city"""
@@ -24,9 +24,7 @@ def load_city_config(city_name):
 def download_satellite_imagery(city_name, year, month):
     """
     Download satellite imagery for a specific city and time period
-    
-    For demo purposes, we'll use Sentinel-2 L2A from public sources
-    In production, you'd use NASA EarthData, Sentinel Hub, or Google Earth Engine
+    Stores locally in: data/urban-growth/{city}/{year}/{month}/
     """
     
     city = load_city_config(city_name)
@@ -43,32 +41,21 @@ def download_satellite_imagery(city_name, year, month):
         response = requests.get(sample_url, timeout=60)
         response.raise_for_status()
         
-        # Store in MinIO
-        s3 = boto3.client(
-            's3',
-            endpoint_url=os.getenv("S3_ENDPOINT_URL"),
-            aws_access_key_id=os.getenv("MINIO_ROOT_USER"),
-            aws_secret_access_key=os.getenv("MINIO_ROOT_PASSWORD")
-        )
+        # Create directory structure
+        output_dir = os.path.join(DATA_DIR, 'urban-growth', city_name, str(year), f"{month:02d}")
+        os.makedirs(output_dir, exist_ok=True)
         
-        # Create bucket if needed
-        try:
-            s3.head_bucket(Bucket="urban-growth")
-        except:
-            s3.create_bucket(Bucket="urban-growth")
+        # Save file locally
+        output_path = os.path.join(output_dir, 'imagery.tif')
+        with open(output_path, 'wb') as f:
+            f.write(response.content)
         
-        # Store with structured naming
-        object_key = f"{city_name}/{year}/{month:02d}/imagery.tif"
+        file_size = os.path.getsize(output_path) / 1024  # KB
+        print(f"✅ Downloaded and stored locally")
+        print(f"   Path: {output_path}")
+        print(f"   Size: {file_size:.2f} KB")
         
-        s3.put_object(
-            Bucket="urban-growth",
-            Key=object_key,
-            Body=response.content,
-            ContentType='image/tiff'
-        )
-        
-        print(f"✅ Stored: s3://urban-growth/{object_key}")
-        return object_key
+        return output_path
         
     except Exception as e:
         print(f"❌ Error downloading imagery: {e}")
@@ -81,7 +68,7 @@ def batch_download_for_city(city_name):
     downloaded = []
     for period in city['time_periods']:
         try:
-            key = download_satellite_imagery(
+            path = download_satellite_imagery(
                 city_name, 
                 period['year'], 
                 period['month']
@@ -90,7 +77,7 @@ def batch_download_for_city(city_name):
                 'city': city_name,
                 'year': period['year'],
                 'month': period['month'],
-                's3_key': key
+                'path': path
             })
         except Exception as e:
             print(f"⚠️  Failed to download {city_name} {period['year']}: {e}")
